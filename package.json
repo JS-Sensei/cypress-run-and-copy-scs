@@ -1,0 +1,34 @@
+{
+  "name": "@nlekane/cypress-run-and-copy-scs",
+  "version": "1.0.0",
+  "description": "Package allowing to run the cypress tests in a loop and copy Scs on Error to a specified Folder",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JS-Sensei/cypress-run-and-copy-scs.git"
+  },
+  "keywords": [
+    "Cypress",
+    "test",
+    "testing",
+    "test-automation",
+    "tests",
+    "javascript-tests",
+    "command-line",
+    "e2e-testing",
+    "e2e-tests"
+  ],
+  "author": "Neila Lekane Tamba",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JS-Sensei/cypress-run-and-copy-scs/issues"
+  },
+  "homepage": "https://github.com/JS-Sensei/cypress-run-and-copy-scs#readme",
+  "dependencies": {
+    "chalk": "2.4.1",
+    "yargs": "12.0.1"
+  }
+}
