@@ -63,7 +63,7 @@ const argv = require('yargs')
         describe: 'The Destination directory where to copy the Screenshots on Test Error',
         demandOption: true
     })
-    .option('number-of-test-exec', {
+    .option('nbrOfTestExec', {
         alias: 'n',
         describe: 'The number of time the Tests should be run before stopping',
         demandOption: true
@@ -78,20 +78,30 @@ log(chalk.bold.blue(separatorLine));
 log(chalk.bold.blue(utilityAbbrString));
 log(chalk.bold.blue(separatorLine))
 
-const [ srcPath , destPath ] = [ resolve(argv.src), resolve(argv.dest) ];
+const [ srcPath , destPath, nbrOfTestExec  ] = [ resolve(argv.src), resolve(argv.dest), argv.nbrOfTestExec ];
 if( existsSync( srcPath) && existsSync( destPath )) {
-    if( checkDirectories( [ srcPath , destPath ] )) {
+    if( checkDirectories( [ srcPath , destPath ] ) && ( nbrOfTestExec > 1)) {
         log(info(`The Src Dir Path is ${ srcPath } and the dest Dir path is ${ destPath}`));
         let [ cypressFolderPath, packageJsonPath ] = isSrcPathValid( srcPath );
         if( !cypressFolderPath ) {
             process.exit( 1 );
         }else {
             if( existsSync( cypressFolderPath ) && existsSync( packageJsonPath )) {
-                getCypressScriptsFromPackageJson(packageJsonPath);
+                let testRunScript = getCypressScriptsFromPackageJson(packageJsonPath);
+                if( testRunScript ) {
+                    try {
+                        process.chdir(srcPath);
+                        log(info(process.cwd()));
+                    } catch (error) {
+                        log(error(`chdir ${error}`));
+                    }
+                }else{
+                    process.exit(1);
+                }
             }
         }
     }else{
-        log(error(`${chalk.underline('src')} and ${chalk.underline('dest')} arguments must be directories`));
+        log(error(`${chalk.underline('src')} and ${chalk.underline('dest')} arguments must be directories and ${chalk.underline('nbrOfTestExec')} should be at least 2 `));
         process.exit( 1 );
     }
 }
@@ -104,7 +114,14 @@ function getCypressScriptsFromPackageJson(packageJsonPath) {
     let fileContent = JSON.parse( readFileSync(packageJsonPath));
     let scriptsProperty = fileContent.scripts;
     if( scriptsProperty ) {
-        log(inspect(scriptsProperty));
+        let scriptPropertykeys = Object.keys( scriptsProperty );
+        let testRunScript = Array.prototype.find.call( scriptPropertykeys, scriptPropertykey => {
+            let scriptPropValue = scriptsProperty[ scriptPropertykey ];
+            let bool = (String.prototype.indexOf.call( scriptPropValue, 'cypress') !== -1) &&
+            (String.prototype.indexOf.call( scriptPropValue, 'run') !== -1);
+            return bool === true;
+        });
+        return testRunScript;
     }else{
         log(error(`No scripts defined in the ${chalk.underline(packageJsonPath)} file, no way to run the test!`));
     }
