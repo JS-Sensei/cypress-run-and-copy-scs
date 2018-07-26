@@ -6,16 +6,45 @@
  */
 'use strict';
 
-const { existsSync, lstatSync, readdirSync } = require('fs');
+/*
+                ,--,           ,----,
+         ,--.,---.'|         ,/   .`|                  ____
+       ,--.'||   | :       ,`   .'  :                ,'  , `.                                                   ___
+   ,--,:  : |:   : |     ;    ;     /             ,-+-,.' _ |                 ,---,                    ,--,   ,--.'|_
+,`--.'`|  ' :|   ' :   .'___,/    ,'           ,-+-. ;   , ||               ,---.'|                  ,--.'|   |  | :,'
+|   :  :  | |;   ; '   |    :     |           ,--.'|'   |  ;|               |   | :                  |  |,    :  : ' :
+:   |   \ | :'   | |__ ;    |.';  ;          |   |  ,', |  ':  ,--.--.      |   | |   ,---.          `--'_  .;__,'  /
+|   : '  '; ||   | :.'|`----'  |  |          |   | /  | |  || /       \   ,--.__| |  /     \         ,' ,'| |  |   |
+'   ' ;.    ;'   :    ;    '   :  ;          '   | :  | :  |,.--.  .-. | /   ,'   | /    /  |        '  | | :__,'| :
+|   | | \   ||   |  ./     |   |  '          ;   . |  ; |--'  \__\/: . ..   '  /  |.    ' / |        |  | :   '  : |__
+'   : |  ; .';   : ;       '   :  |          |   : |  | ,     ," .--.; |'   ; |:  |'   ;   /|        '  : |__ |  | '.'|
+|   | '`--'  |   ,/        ;   |.'           |   : '  |/     /  /  ,.  ||   | '/  ''   |  / |        |  | '.'|;  :    ;
+'   : |      '---'         '---'             ;   | |`-'     ;  :   .'   \   :    :||   :    |        ;  :    ;|  ,   /
+;   |.'                                      |   ;/         |  ,     .-./\   \  /   \   \  /         |  ,   /  ---`-'
+'---'                                        '---'           `--`---'     `----'     `----'           ---`-'
+*/
+
+const { existsSync, lstatSync, readdirSync, readFileSync } = require('fs');
 const { inspect } = require('util');
 const { resolve, parse, join } = require('path');
 const chalk = require('chalk');
 
 //-----------------------------------------------------------------------------------------------------------
 const log = console.log.bind(console);
-const info = chalk.bold.blue;
-const warning = chalk.bold.yellow;
-const error = chalk.bold.red;
+const info = str => chalk.bold.blue('[INFO]: '+ str);
+const warning = str => chalk.bold.yellow('[WARN]: '+ str);
+const error =  str  => chalk.bold.red('[ERROR]: '+ str);
+
+const utilityAbbrString = `
+..######..########...######...######...######...######.
+.##....##.##.....##.##....##.##....##.##....##.##....##
+.##.......##.....##.##.......##.......##.......##......
+.##.......########..##........######..##........######.
+.##.......##...##...##.............##.##.............##
+.##....##.##....##..##....##.##....##.##....##.##....##
+..######..##.....##..######...######...######...######.
+`;
+const separatorLine = '--'.repeat(80);
 
 
 /**
@@ -43,19 +72,22 @@ const argv = require('yargs')
     .help()
     .argv;
 
-
+// Clear Console
+console.clear();
+log(chalk.bold.blue(separatorLine));
+log(chalk.bold.blue(utilityAbbrString));
+log(chalk.bold.blue(separatorLine))
 
 const [ srcPath , destPath ] = [ resolve(argv.src), resolve(argv.dest) ];
 if( existsSync( srcPath) && existsSync( destPath )) {
     if( checkDirectories( [ srcPath , destPath ] )) {
         log(info(`The Src Dir Path is ${ srcPath } and the dest Dir path is ${ destPath}`));
-        let cypressFolderPath = isSrcPathValid( srcPath );
+        let [ cypressFolderPath, packageJsonPath ] = isSrcPathValid( srcPath );
         if( !cypressFolderPath ) {
             process.exit( 1 );
         }else {
-            if( existsSync( cypressFolderPath )) {
-                log(info(`The Cypress Folder ${cypressFolderPath} exists in the file System `));
-
+            if( existsSync( cypressFolderPath ) && existsSync( packageJsonPath )) {
+                getCypressScriptsFromPackageJson(packageJsonPath);
             }
         }
     }else{
@@ -67,32 +99,57 @@ if( existsSync( srcPath) && existsSync( destPath )) {
 
 //-----------------------------------------------------------------------------------------------------------
 
-function getCypressScriptsFromPackageJson() {
+function getCypressScriptsFromPackageJson(packageJsonPath) {
+    //Read the Package JSON and retrieve the `scripts`property
+    let fileContent = JSON.parse( readFileSync(packageJsonPath));
+    let scriptsProperty = fileContent.scripts;
+    if( scriptsProperty ) {
+        log(inspect(scriptsProperty));
+    }else{
+        log(error(`No scripts defined in the ${chalk.underline(packageJsonPath)} file, no way to run the test!`));
+    }
     
 }
 
 function isSrcPathValid( pathToFolder ) {
-    //Cypress Folder contain a package.json and/or cypress.json
-    let srcDirContent = readdirSync( pathToFolder );
-    const localUtil = function ( dirContent ) {
-        let parsed = parse( dirContent );
-        return (( parsed.name.toLowerCase() === 'cypress') && ( !parsed.ext))
+    //The Src Folder must have a package.json where there should
+    //be scripts to run the test and also a cypress.json eventually empty
+    //Where should be the Cypress configurations
+    //It should also a cypress subdirectory
+
+    let srcDirContents = readdirSync( pathToFolder );
+    let parsedDirContents = [];
+
+    Array.prototype.forEach.call( srcDirContents, dirContent => {
+        parsedDirContents.push(parse(dirContent));
+    });
+
+    const hasCypressSubDirectory = function ( parsedDirContent ) {
+        return (( parsedDirContent.name.toLowerCase() === 'cypress') && ( !parsedDirContent.ext));
+    }
+    const hasPackageJson = function ( parsedDirContent ) {
+        return (( parsedDirContent.name.toLowerCase() === 'package') && (parsedDirContent.ext === '.json'));
     }
 
-    if( Array.prototype.some.call( srcDirContent, localUtil)) {
-        log(info(`${ pathToFolder } is a valid Src folder containing the Cypress folder`));
-        return join( pathToFolder, 'cypress');
+    const hasCypressJson = function ( parsedDirContent ) {
+        return (( parsedDirContent.name.toLowerCase() === 'cypress') && (parsedDirContent.ext === '.json'));
+    }
+
+    if( Array.prototype.some.call( parsedDirContents, hasCypressSubDirectory) && Array.prototype.some.call( parsedDirContents, hasPackageJson)) {
+        log(info(`${ pathToFolder } is a valid Src folder containing the ${chalk.underline('cypress')} subfolder and a ${chalk.underline('package.json')}`));
+        if(!Array.prototype.some.call( parsedDirContents, hasCypressJson)) {
+            log(warning(`No ${chalk.underline('cypress.json')} File was found. Default Cypress Configs are then expected.`));
+        }
+        return [ join( pathToFolder, 'cypress'), join( pathToFolder, 'package.json') ];
     }else {
         log(error(`${chalk.underline('src')} should be a Project Folder in which Cypress has been installed`));
     }
 }
 
 function checkDirectories( arrOfPath ) {
+    const isDirectory = path => lstatSync(path).isDirectory();
     return Array.prototype.every.call( arrOfPath, isDirectory);
 }
 
-function isDirectory( path ) {
-    return lstatSync(path).isDirectory();
-}
 
 
