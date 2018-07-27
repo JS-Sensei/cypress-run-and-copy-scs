@@ -28,12 +28,13 @@ const { existsSync, lstatSync, readdirSync, readFileSync } = require('fs');
 const { inspect } = require('util');
 const { resolve, parse, join } = require('path');
 const chalk = require('chalk');
+const { execSync, spawnSync } = require('child_process');
 
 //-----------------------------------------------------------------------------------------------------------
 const log = console.log.bind(console);
 const info = str => chalk.bold.blue('[INFO]: '+ str);
 const warning = str => chalk.bold.yellow('[WARN]: '+ str);
-const error =  str  => chalk.bold.red('[ERROR]: '+ str);
+const err =  str  => chalk.bold.red('[ERROR]: '+ str);
 
 const utilityAbbrString = `
 ..######..########...######...######...######...######.
@@ -60,7 +61,7 @@ const argv = require('yargs')
     })
     .option('dest', {
         alias: 'd',
-        describe: 'The Destination directory where to copy the Screenshots on Test Error',
+        describe: 'The Destination directory where to copy the Screenshots on Test err',
         demandOption: true
     })
     .option('nbrOfTestExec', {
@@ -92,8 +93,31 @@ if( existsSync( srcPath) && existsSync( destPath )) {
                     try {
                         process.chdir(srcPath);
                         log(info(process.cwd()));
-                    } catch (error) {
-                        log(error(`chdir ${error}`));
+                        //Now Run a command for a specific amount of time and see the output
+                        let successulExecsCount = 0;
+                        //Should be `npm run ${testRunScript}`
+
+                        for( let i=1; i <= nbrOfTestExec; i++) {
+                            log(info(`Execution n° ${i}`))
+                            let tmp2 = spawnSync('ls', ['-al'], {stdio:[0,1,2]});
+                            log(info('------------------'));
+                            let { status, stderr } = tmp2;
+                            log(info(`Statussss: ${status}`))
+                            if( status === 0) {
+                                ++successulExecsCount;
+                            }
+                            if( stderr ) {
+                                log(err( tmp2.stderr ));
+                            }
+                            log(info(inspect(tmp2)));
+                            
+                        }
+                        let successRate = Math.floor( (successulExecsCount / nbrOfTestExec) * 100 );
+                        log(info(`Success Rate: ${successRate} %`));
+
+                    } catch (err) {
+                        log(err(`chdir ${err}`));
+                        process.exit(1);
                     }
                 }else{
                     process.exit(1);
@@ -101,7 +125,7 @@ if( existsSync( srcPath) && existsSync( destPath )) {
             }
         }
     }else{
-        log(error(`${chalk.underline('src')} and ${chalk.underline('dest')} arguments must be directories and ${chalk.underline('nbrOfTestExec')} should be at least 2 `));
+        log(err(`${chalk.underline('src')} and ${chalk.underline('dest')} arguments must be directories and ${chalk.underline('nbrOfTestExec')} should be at least 2 `));
         process.exit( 1 );
     }
 }
@@ -123,7 +147,7 @@ function getCypressScriptsFromPackageJson(packageJsonPath) {
         });
         return testRunScript;
     }else{
-        log(error(`No scripts defined in the ${chalk.underline(packageJsonPath)} file, no way to run the test!`));
+        log(err(`No scripts defined in the ${chalk.underline(packageJsonPath)} file, no way to run the test!`));
     }
     
 }
@@ -159,7 +183,7 @@ function isSrcPathValid( pathToFolder ) {
         }
         return [ join( pathToFolder, 'cypress'), join( pathToFolder, 'package.json') ];
     }else {
-        log(error(`${chalk.underline('src')} should be a Project Folder in which Cypress has been installed`));
+        log(err(`${chalk.underline('src')} should be a Project Folder in which Cypress has been installed`));
     }
 }
 
