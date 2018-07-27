@@ -24,11 +24,11 @@
 '---'                                        '---'           `--`---'     `----'     `----'           ---`-'
 */
 
-const { existsSync, lstatSync, readdirSync, readFileSync } = require('fs');
+const { existsSync, lstatSync, readdirSync, readFileSync, watch } = require('fs');
 const { inspect } = require('util');
 const { resolve, parse, join } = require('path');
 const chalk = require('chalk');
-const { execSync, spawnSync } = require('child_process');
+const {  spawnSync } = require('child_process');
 
 //-----------------------------------------------------------------------------------------------------------
 const log = console.log.bind(console);
@@ -92,25 +92,23 @@ if( existsSync( srcPath) && existsSync( destPath )) {
                 if( testRunScript ) {
                     try {
                         process.chdir(srcPath);
-                        log(info(process.cwd()));
+                        //Start watching the cypressFolderPath Folder for changes
+                        //We'll look for changes involving the `screenshots`directory
+
                         //Now Run a command for a specific amount of time and see the output
                         let successulExecsCount = 0;
                         //Should be `npm run ${testRunScript}`
 
                         for( let i=1; i <= nbrOfTestExec; i++) {
                             log(info(`Execution n° ${i}`))
-                            let tmp2 = spawnSync('ls', ['-al'], {stdio:[0,1,2]});
-                            log(info('------------------'));
-                            let { status, stderr } = tmp2;
-                            log(info(`Statussss: ${status}`))
+                            let tmp = spawnSync('npm', [ 'run', testRunScript ], {stdio:[0,1,2]});
+                            let { status, stderr } = tmp;
                             if( status === 0) {
                                 ++successulExecsCount;
                             }
                             if( stderr ) {
-                                log(err( tmp2.stderr ));
+                                log(err( tmp.stderr ));
                             }
-                            log(info(inspect(tmp2)));
-                            
                         }
                         let successRate = Math.floor( (successulExecsCount / nbrOfTestExec) * 100 );
                         log(info(`Success Rate: ${successRate} %`));
