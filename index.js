@@ -25,10 +25,12 @@
 */
 
 const { existsSync, lstatSync, readdirSync, readFileSync, watch } = require('fs');
-const { inspect } = require('util');
+const util = require('util');
 const { resolve, parse, join } = require('path');
+const promisifiedExec = util.promisify( require('child_process').exec);
 const chalk = require('chalk');
-const {  spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
+const pSettle = require('p-settle');
 
 //-----------------------------------------------------------------------------------------------------------
 const log = console.log.bind(console);
@@ -94,12 +96,19 @@ if( existsSync( srcPath) && existsSync( destPath )) {
                         process.chdir(srcPath);
                         //Start watching the cypressFolderPath Folder for changes
                         //We'll look for changes involving the `screenshots`directory
-
+                        watch( cypressFolderPath, (eventType, payload) => {
+                            if( payload ){
+                                log(warning(`Event type is: ${eventType} | Payload: ${payload}`));
+                            }
+                        });
                         //Now Run a command for a specific amount of time and see the output
                         let successulExecsCount = 0;
+                        let promisesArray = [];
                         //Should be `npm run ${testRunScript}`
 
                         for( let i=1; i <= nbrOfTestExec; i++) {
+                            promisesArray.push( promisifiedExec('ls -al'));
+                            /* 
                             log(info(`Execution n° ${i}`))
                             let tmp = spawnSync('npm', [ 'run', testRunScript ], {stdio:[0,1,2]});
                             let { status, stderr } = tmp;
@@ -108,11 +117,17 @@ if( existsSync( srcPath) && existsSync( destPath )) {
                             }
                             if( stderr ) {
                                 log(err( tmp.stderr ));
-                            }
+                            } */
                         }
-                        let successRate = Math.floor( (successulExecsCount / nbrOfTestExec) * 100 );
-                        log(info(`Success Rate: ${successRate} %`));
-
+                        pSettle( promisesArray ).then( result => {
+                            log(util.inspect( result ));
+                            process.exit(0);
+                        });
+                        /* Promise.all(promisesArray).then( result => {
+                            log(util.inspect( result ));
+                            log(info('Execution finished....about to exit'));
+                            process.exit(0);
+                        }).catch( error => log(error( error ))); */
                     } catch (err) {
                         log(err(`chdir ${err}`));
                         process.exit(1);
