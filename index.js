@@ -31,12 +31,13 @@ const promisifiedExec = util.promisify( require('child_process').exec);
 const chalk = require('chalk');
 const { spawnSync } = require('child_process');
 const pSettle = require('p-settle');
+const ora = require('ora');
 
 //-----------------------------------------------------------------------------------------------------------
 const log = console.log.bind(console);
-const info = str => chalk.bold.blue('[INFO]: '+ str);
-const warning = str => chalk.bold.yellow('[WARN]: '+ str);
-const err =  str  => chalk.bold.red('[ERROR]: '+ str);
+const info = str => chalk.bold.blue('[INFO]: '+ str + '\n');
+const warning = str => chalk.bold.yellow('[WARN]: '+ str + '\n');
+const err =  str  => chalk.bold.red('[ERROR]: '+ str + '\n');
 
 const utilityAbbrString = `
 ..######..########...######...######...######...######.
@@ -47,7 +48,7 @@ const utilityAbbrString = `
 .##....##.##....##..##....##.##....##.##....##.##....##
 ..######..##.....##..######...######...######...######.
 `;
-const separatorLine = '--'.repeat(80);
+const separatorLine = '--'.repeat(30);
 
 
 /**
@@ -75,6 +76,10 @@ const argv = require('yargs')
     .help()
     .argv;
 
+process.on('exit', (code) => {
+    log(info(`About to exit with code ${code}`));
+})
+
 // Clear Console
 console.clear();
 log(chalk.bold.blue(separatorLine));
@@ -93,12 +98,21 @@ if( existsSync( srcPath) && existsSync( destPath )) {
                 let testRunScript = getCypressScriptsFromPackageJson(packageJsonPath);
                 if( testRunScript ) {
                     try {
+                        //Creating The Console Spinner
+                        const spinner = ora(`Running the test ${nbrOfTestExec}  times \n`).start();
+
                         process.chdir(srcPath);
                         //Start watching the cypressFolderPath Folder for changes
                         //We'll look for changes involving the `screenshots`directory
                         watch( cypressFolderPath, (eventType, payload) => {
                             if( payload ){
-                                log(warning(`Event type is: ${eventType} | Payload: ${payload}`));
+                                log(warning(`\n Event type is: ${eventType} | Payload: ${payload}`));
+                                let newPath = join(cypressFolderPath, payload);
+                                if(existsSync(newPath)) {
+                                    let screenshotDirContent = readdirSync( newPath );
+                                    log(info(`The path ${newPath} exists`));
+                                    log(info(util.inspect(screenshotDirContent)));
+                                }
                             }
                         });
                         //Now Run a command for a specific amount of time and see the output
@@ -107,7 +121,7 @@ if( existsSync( srcPath) && existsSync( destPath )) {
                         //Should be `npm run ${testRunScript}`
 
                         for( let i=1; i <= nbrOfTestExec; i++) {
-                            promisesArray.push( promisifiedExec('ls -al'));
+                            promisesArray.push( promisifiedExec(`npm run ${testRunScript}`));
                             /* 
                             log(info(`Execution n° ${i}`))
                             let tmp = spawnSync('npm', [ 'run', testRunScript ], {stdio:[0,1,2]});
@@ -120,8 +134,11 @@ if( existsSync( srcPath) && existsSync( destPath )) {
                             } */
                         }
                         pSettle( promisesArray ).then( result => {
-                            log(util.inspect( result ));
-                            process.exit(0);
+                            spinner.stop();
+                            log(info(util.inspect(process._getActiveRequests())));
+                            //log(info(util.inspect(process._getActiveHandles())));
+                            //log(util.inspect( result ));
+                            process.exitCode = 0;
                         });
                         /* Promise.all(promisesArray).then( result => {
                             log(util.inspect( result ));
@@ -130,17 +147,20 @@ if( existsSync( srcPath) && existsSync( destPath )) {
                         }).catch( error => log(error( error ))); */
                     } catch (err) {
                         log(err(`chdir ${err}`));
-                        process.exit(1);
+                        process.exitCode = 1;
                     }
                 }else{
-                    process.exit(1);
+                    process.exitCode = 1;
                 }
             }
         }
     }else{
         log(err(`${chalk.underline('src')} and ${chalk.underline('dest')} arguments must be directories and ${chalk.underline('nbrOfTestExec')} should be at least 2 `));
-        process.exit( 1 );
+        process.exitCode = 1;
     }
+}else {
+    log(err(`${chalk.underline('src')} and ${chalk.underline('dest')} should exist on the file system`));
+    process.exitCode = 1;
 }
 
 
