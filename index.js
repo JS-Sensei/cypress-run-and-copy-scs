@@ -29,9 +29,9 @@ const util = require('util');
 const { resolve, parse, join } = require('path');
 const promisifiedExec = util.promisify( require('child_process').exec);
 const chalk = require('chalk');
-const { spawnSync } = require('child_process');
 const pSettle = require('p-settle');
 const ora = require('ora');
+const kill = require('tree-kill');
 
 //-----------------------------------------------------------------------------------------------------------
 const log = console.log.bind(console);
@@ -135,7 +135,13 @@ if( existsSync( srcPath) && existsSync( destPath )) {
                         }
                         pSettle( promisesArray ).then( result => {
                             spinner.stop();
-                            log(info(util.inspect(process._getActiveRequests())));
+                            
+                            log(info('The promises Array'));
+                            log(util.inspect( promisesArray ));
+                            log(warning(`Root Process PID is : ${process.pid}`));
+                            kill(process.pid);
+
+                            //log(info(util.inspect(process._getActiveRequests())));
                             //log(info(util.inspect(process._getActiveHandles())));
                             //log(util.inspect( result ));
                             process.exitCode = 0;
